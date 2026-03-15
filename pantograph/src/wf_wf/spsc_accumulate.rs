@@ -44,7 +44,7 @@ struct Shared<T> {
 /// Construct the [`Sender`] and [`Receiver`] by calling [`channel`].
 pub struct Sender<T> {
     shared: Arc<Shared<T>>,
-    write_idx: usize,
+    write_idx: u8,
 }
 
 /// The receiver side of the accumulating channel.
@@ -77,17 +77,30 @@ impl<T> Sender<T> {
         }
 
         self.shared.stamp.load(Ordering::Acquire);
-        let stamp = self.write_idx as u8 | PUBLISHED;
+        let stamp = self.write_idx | PUBLISHED;
         self.write_idx = (self.write_idx + 1) % 2;
         let val = init();
-        unsafe { *self.shared.values.get_unchecked(self.write_idx).get() = MaybeUninit::new(val) };
+        unsafe {
+            *self
+                .shared
+                .values
+                .get_unchecked(usize::from(self.write_idx))
+                .get() = MaybeUninit::new(val);
+        }
         self.shared.stamp.store(stamp, Ordering::Release);
         Ok(true)
     }
 
     /// Get the currently staged value mutably.
     pub fn get_mut(&mut self) -> &mut T {
-        unsafe { (*self.shared.values.get_unchecked(self.write_idx).get()).assume_init_mut() }
+        unsafe {
+            (*self
+                .shared
+                .values
+                .get_unchecked(usize::from(self.write_idx))
+                .get())
+            .assume_init_mut()
+        }
     }
 }
 
@@ -106,16 +119,14 @@ impl<T> Receiver<T> {
         let mut stamp = self.shared.stamp.load(Ordering::Relaxed);
         let mut disconnected = false;
 
-        if stamp & PUBLISHED == 0 {
-            if self.shared.disconnected.load(Ordering::Relaxed) {
-                disconnected = true;
-                // The channel is empty and the `Sender` has disconnected, but it may be that we
-                // saw the disconnect signal before we saw the updated stamp, as both were loaded
-                // with `Relaxed` semantics. Load the disconnect signal with `Acquire` semantics
-                // and then load `stamp` again.
-                self.shared.disconnected.load(Ordering::Acquire);
-                stamp = self.shared.stamp.load(Ordering::Relaxed);
-            }
+        if stamp & PUBLISHED == 0 && self.shared.disconnected.load(Ordering::Relaxed) {
+            disconnected = true;
+            // The channel is empty and the `Sender` has disconnected, but it may be that we
+            // saw the disconnect signal before we saw the updated stamp, as both were loaded
+            // with `Relaxed` semantics. Load the disconnect signal with `Acquire` semantics
+            // and then load `stamp` again.
+            self.shared.disconnected.load(Ordering::Acquire);
+            stamp = self.shared.stamp.load(Ordering::Relaxed);
         }
         if stamp & PUBLISHED == 0 {
             if disconnected {
@@ -140,7 +151,14 @@ impl<T> Drop for Sender<T> {
     fn drop(&mut self) {
         if core::mem::needs_drop::<T>() {
             // Drop the unpublished value.
-            unsafe { (*self.shared.values.get_unchecked(self.write_idx).get()).assume_init_read() };
+            unsafe {
+                (*self
+                    .shared
+                    .values
+                    .get_unchecked(usize::from(self.write_idx))
+                    .get())
+                .assume_init_read()
+            };
         }
         // The `Sender` disconnect has `Release` semantics, such that on `Sender` disconnect the
         // `Receiver` can acquire all the `Sender`'s previous writes.
@@ -207,7 +225,7 @@ mod test {
 
     #[test]
     fn basic() {
-        let (mut tx, mut rx) = channel(0u64);
+        let (mut tx, mut rx) = channel(0_u64);
 
         assert_eq!(rx.try_recv(), Err(TryRecvError::Empty));
 
@@ -221,7 +239,7 @@ mod test {
 
     #[test]
     fn update_blocked_while_unconsumed() {
-        let (mut tx, mut rx) = channel(0u64);
+        let (mut tx, mut rx) = channel(0_u64);
 
         *tx.get_mut() = 42;
         assert!(tx.try_send(|| 0).unwrap());
@@ -263,11 +281,11 @@ mod test {
 
     #[test]
     fn multithread_accumulate() {
-        let (mut tx, mut rx) = channel(0u64);
+        let (mut tx, mut rx) = channel(0_u64);
 
         let producer = std::thread::spawn({
             move || {
-                let mut total = 0u64;
+                let mut total = 0_u64;
                 let now = Instant::now();
                 while now.elapsed().as_secs() < 1 {
                     *tx.get_mut() += 1;
@@ -286,7 +304,7 @@ mod test {
             }
         });
 
-        let mut received_total = 0u64;
+        let mut received_total = 0_u64;
         loop {
             match rx.try_recv() {
                 Ok(val) => received_total += val,

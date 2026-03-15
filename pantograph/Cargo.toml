@@ -6,6 +6,8 @@ edition.workspace = true
 description = "Wait-free channels"
 keywords = ["thread", "channel", "message", "parallel"]
 categories = ["concurrency"]
+repository.workspace = true
+readme.workspace = true
 rust-version.workspace = true
 
 [package.metadata.docs.rs]
