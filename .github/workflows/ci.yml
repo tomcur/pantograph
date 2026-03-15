@@ -122,6 +122,9 @@ jobs:
           targets: x86_64-unknown-none
           components: clippy
 
+      - name: pin toolchain
+        run: echo "RUSTUP_TOOLCHAIN=${{ env.RUST_STABLE_VER }}" >> "$GITHUB_ENV"
+
       - name: install cargo-hack
         uses: taiki-e/install-action@v2
         with:
@@ -153,6 +156,9 @@ jobs:
           toolchain: ${{ env.RUST_STABLE_VER }}
           targets: wasm32-unknown-unknown
           components: clippy
+
+      - name: pin toolchain
+        run: echo "RUSTUP_TOOLCHAIN=${{ env.RUST_STABLE_VER }}" >> "$GITHUB_ENV"
 
       - name: install cargo-hack
         uses: taiki-e/install-action@v2
@@ -212,6 +218,9 @@ jobs:
           toolchain: ${{ env.RUST_STABLE_VER }}
           targets: wasm32-unknown-unknown
 
+      - name: pin toolchain
+        run: echo "RUSTUP_TOOLCHAIN=${{ env.RUST_STABLE_VER }}" >> "$GITHUB_ENV"
+
       - name: restore cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -235,6 +244,9 @@ jobs:
         with:
           toolchain: ${{ env.RUST_MIN_VER }}
           targets: x86_64-unknown-none
+
+      - name: pin toolchain
+        run: echo "RUSTUP_TOOLCHAIN=${{ env.RUST_MIN_VER }}" >> "$GITHUB_ENV"
 
       - name: install cargo-hack
         uses: taiki-e/install-action@v2
@@ -263,6 +275,9 @@ jobs:
         with:
           toolchain: ${{ env.RUST_MIN_VER }}
           targets: wasm32-unknown-unknown
+
+      - name: pin toolchain
+        run: echo "RUSTUP_TOOLCHAIN=${{ env.RUST_MIN_VER }}" >> "$GITHUB_ENV"
 
       - name: install cargo-hack
         uses: taiki-e/install-action@v2
