@@ -78,8 +78,8 @@ impl<T> Sender<T> {
 
         self.shared.stamp.load(Ordering::Acquire);
         let stamp = self.write_idx | PUBLISHED;
-        self.write_idx = (self.write_idx + 1) % 2;
         let val = init();
+        self.write_idx ^= 1;
         unsafe {
             *self
                 .shared
@@ -214,6 +214,7 @@ mod test {
     extern crate std;
 
     use std::{
+        panic::{AssertUnwindSafe, catch_unwind},
         sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
@@ -277,6 +278,21 @@ mod test {
         // any values. We still have `val` + `received`.
         drop(rx);
         assert_eq!(Arc::strong_count(&val), 2);
+    }
+
+    #[test]
+    fn try_send_panic() {
+        let (mut tx, mut rx) = channel(42_u64);
+
+        // If the function passed to `try_send` panics, no change is made.
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let _ = tx.try_send(|| panic!());
+        }));
+        assert!(result.is_err());
+
+        *tx.get_mut() += 1;
+        assert!(tx.try_send(|| 0).unwrap());
+        assert_eq!(rx.try_recv(), Ok(43));
     }
 
     #[test]
