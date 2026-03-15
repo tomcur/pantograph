@@ -13,7 +13,9 @@
       {
         devShell = pkgs.mkShell {
           packages = with pkgs; [
-            (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+            (rust-bin.nightly.latest.minimal.override {
+              extensions = [ "rust-src" "rustfmt" "rust-analyzer" "miri" "clippy" "llvm-tools" ];
+            })
             typos
           ];
         };

@@ -1,5 +1,5 @@
 //! A single-producer, single-consumer channel. The consumer reads the latest-produced value.
-//! 
+//!
 //! The sender and receiver are wait-free.
 //!
 //! The [`Sender`] regains ownership over old values, both read and unread, allowing it to reuse
