@@ -1,7 +1,11 @@
 [package]
 name = "pantograph"
 version = "0.1.0"
+license.workspace = true
 edition.workspace = true
+description = "Wait-free channels"
+keywords = ["thread", "channel", "message", "parallel"]
+categories = ["concurrency"]
 rust-version.workspace = true
 
 [package.metadata.docs.rs]
