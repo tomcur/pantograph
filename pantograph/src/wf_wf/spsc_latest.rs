@@ -22,6 +22,7 @@ use crossbeam_utils::CachePadded;
 
 const BACKBUFFER_MASK: u8 = 0b0011;
 const VALUE_SENT_MASK: u8 = 0b0100;
+const BACKBUFFER_INIT_MASK: u8 = 0b1000;
 
 struct Shared<T> {
     buffer: [CachePadded<UnsafeCell<MaybeUninit<T>>>; 3],
@@ -30,10 +31,9 @@ struct Shared<T> {
 
 impl<T> Drop for Shared<T> {
     fn drop(&mut self) {
-        if core::mem::needs_drop::<T>()
-            && *self.stamp.get_mut() & VALUE_SENT_MASK == VALUE_SENT_MASK
-        {
-            let index = *self.stamp.get_mut() & BACKBUFFER_MASK;
+        let stamp = *self.stamp.get_mut();
+        if core::mem::needs_drop::<T>() && stamp & (VALUE_SENT_MASK | BACKBUFFER_INIT_MASK) != 0 {
+            let index = stamp & BACKBUFFER_MASK;
             let val = unsafe { self.buffer.get_unchecked_mut(index as usize) }.get_mut();
             unsafe {
                 val.assume_init_drop();
@@ -118,11 +118,14 @@ impl<T> Receiver<T> {
         unsafe { (*self.shared.buffer.get_unchecked(self.index as usize).get()).assume_init_mut() }
     }
 
-    /// Send a new value (i.e., set the next value the reader will read). This returns a previous
-    /// value if this is not the first time sending.
+    /// Check for and swap in the next value the reader should observe.
     pub fn update(&mut self) -> bool {
         if self.shared.stamp.load(Ordering::Relaxed) & VALUE_SENT_MASK == VALUE_SENT_MASK {
-            self.index = self.shared.stamp.swap(self.index, Ordering::AcqRel) & BACKBUFFER_MASK;
+            self.index = self
+                .shared
+                .stamp
+                .swap(BACKBUFFER_INIT_MASK | self.index, Ordering::AcqRel)
+                & BACKBUFFER_MASK;
             true
         } else {
             false
@@ -179,25 +182,70 @@ mod test {
 
     #[test]
     fn drops() {
-        let val = Arc::new(42);
+        let initial = Arc::new(42);
+        let one = Arc::new(43);
+        let two = Arc::new(44);
 
-        let (mut tx, mut rx) = channel(val.clone());
+        {
+            let (mut tx, mut rx) = channel(initial.clone());
+            assert_eq!(Arc::strong_count(&initial), 2);
 
-        assert_eq!(Arc::strong_count(&val), 2);
-        assert_eq!(rx.recv(), None);
-        assert_eq!(Arc::strong_count(&val), 2);
+            // First send, so no previous value is returned.
+            assert!(tx.send(one.clone()).is_none());
+            assert_eq!(Arc::strong_count(&initial), 2);
+            assert_eq!(Arc::strong_count(&one), 2);
 
-        assert_eq!(tx.send(val.clone()), None);
-        assert_eq!(Arc::strong_count(&val), 3);
-        assert!(tx.send(val.clone()).is_some());
-        assert_eq!(Arc::strong_count(&val), 3);
-        assert!(tx.send(val.clone()).is_some());
-        assert_eq!(Arc::strong_count(&val), 3);
+            // Subsequent sends return the sender's previous value (the receiver is still sitting
+            // on `initial`).
+            assert_eq!(tx.send(two.clone()).as_ref(), Some(&one));
+            assert_eq!(Arc::strong_count(&one), 1);
+            assert_eq!(Arc::strong_count(&two), 2);
+            assert_eq!(Arc::strong_count(&initial), 2);
 
+            assert_eq!(tx.send(one.clone()).as_ref(), Some(&two));
+            assert_eq!(Arc::strong_count(&one), 2);
+            assert_eq!(Arc::strong_count(&two), 1);
+            assert_eq!(Arc::strong_count(&initial), 2);
+
+            // The receiver receives the latest value sent by the sender. The value the receiver
+            // was sitting on is returned to the sender.
+            assert_eq!(rx.recv().unwrap(), &one);
+            assert_eq!(Arc::strong_count(&one), 2);
+            assert_eq!(Arc::strong_count(&two), 1);
+            assert_eq!(Arc::strong_count(&initial), 2);
+
+            assert_eq!(tx.send(two.clone()).as_ref(), Some(&initial));
+            assert_eq!(Arc::strong_count(&one), 2);
+            assert_eq!(Arc::strong_count(&two), 2);
+            assert_eq!(Arc::strong_count(&initial), 1);
+        }
+
+        // Dropping both sides of the channel cleans everything up.
+        assert_eq!(Arc::strong_count(&initial), 1);
+        assert_eq!(Arc::strong_count(&one), 1);
+        assert_eq!(Arc::strong_count(&two), 1);
+    }
+
+    #[test]
+    fn drops_previous_value_after_sender_disconnect_and_receive() {
+        let initial = Arc::new(());
+        let sent = Arc::new(());
+
+        let mut rx = {
+            let (mut tx, rx) = channel(initial.clone());
+
+            assert_eq!(Arc::strong_count(&initial), 2);
+            assert!(tx.send(sent.clone()).is_none());
+            assert_eq!(Arc::strong_count(&sent), 2);
+            drop(tx);
+            rx
+        };
+
+        assert!(rx.recv().is_some());
         drop(rx);
-        assert_eq!(Arc::strong_count(&val), 2);
-        drop(tx);
-        assert_eq!(Arc::strong_count(&val), 1);
+
+        assert_eq!(Arc::strong_count(&initial), 1);
+        assert_eq!(Arc::strong_count(&sent), 1);
     }
 
     #[test]
