@@ -23,11 +23,6 @@ guarantees the full system makes progress and cannot get in a deadlock; wait-fre
 guarantees per-thread progress. Wait-free channels are useful for problems that must meet
 particular timing requirements, but they are not necessarily faster than lock-free channels.
 
-The channels are organized into three groups.
-- In `lf_wf`, producer(s) are lock-free, consumer(s) are wait-free.
-- In `wf_lf`, producer(s) are wait-free, consumer(s) are lock-free.
-- In [`wf_wf`], producer(s) and consumer(s) are wait-free.
-
 <!-- cargo-rdme end -->
 
 ## Minimum supported Rust Version (MSRV)
