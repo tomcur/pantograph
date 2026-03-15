@@ -8,7 +8,7 @@ members = [
 edition = "2024"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/tomcur/pantograph"
-rust-version = "1.93"
+rust-version = "1.85"
 
 # Optimize all packages not in this workspace. This makes
 # performance in debug builds of our code significantly better.
