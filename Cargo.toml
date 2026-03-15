@@ -1,8 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-  "pantograph",
-]
+members = ["pantograph"]
 
 [workspace.package]
 edition = "2024"
