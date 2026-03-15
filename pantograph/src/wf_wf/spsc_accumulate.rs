@@ -31,7 +31,7 @@ pub enum TryRecvError {
 
 /// The [`Receiver`] side of the channel has disconnected.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct UpdateError;
+pub struct TrySendError;
 
 struct Shared<T> {
     values: [CachePadded<UnsafeCell<MaybeUninit<T>>>; 2],
@@ -59,19 +59,19 @@ unsafe impl<T: Send> Send for Sender<T> {}
 unsafe impl<T: Send> Send for Receiver<T> {}
 
 impl<T> Sender<T> {
-    /// If the [`Receiver`] has read the previous value, publish the current value and stage a
-    /// fresh one by calling `init`.
+    /// If the [`Receiver`] has read the previous value, send the current value and stage a fresh
+    /// one by calling `init`.
     ///
-    /// Returns `Ok(true)` if the previous value was published. The newly staged value can be
-    /// updated using [`Self::get_mut`].
+    /// Returns `Ok(true)` if the previous value was sent. The newly staged value can be updated
+    /// using [`Self::get_mut`].
     ///
     /// The first call to this method unconditionally publishes the initial value.
-    pub fn update(&mut self, init: impl FnOnce() -> T) -> Result<bool, UpdateError> {
+    pub fn try_send(&mut self, init: impl FnOnce() -> T) -> Result<bool, TrySendError> {
         // First do a `Relaxed` load to check, as this doesn't require synchronization on most
         // platforms.
 
         if self.shared.disconnected.load(Ordering::Relaxed) {
-            return Err(UpdateError);
+            return Err(TrySendError);
         } else if self.shared.stamp.load(Ordering::Relaxed) & PUBLISHED != 0 {
             return Ok(false);
         }
@@ -213,7 +213,7 @@ mod test {
 
         *tx.get_mut() += 10;
         *tx.get_mut() += 5;
-        assert!(tx.update(|| 0).unwrap());
+        assert!(tx.try_send(|| 0).unwrap());
 
         assert_eq!(rx.try_recv(), Ok(15));
         assert_eq!(rx.try_recv(), Err(TryRecvError::Empty));
@@ -224,17 +224,17 @@ mod test {
         let (mut tx, mut rx) = channel(0u64);
 
         *tx.get_mut() = 42;
-        assert!(tx.update(|| 0).unwrap());
+        assert!(tx.try_send(|| 0).unwrap());
 
         // The value isn't published until the receiver consumes the last value.
         *tx.get_mut() += 1;
-        assert!(!tx.update(|| 0).unwrap());
+        assert!(!tx.try_send(|| 0).unwrap());
         *tx.get_mut() += 1;
-        assert!(!tx.update(|| 0).unwrap());
+        assert!(!tx.try_send(|| 0).unwrap());
 
         assert_eq!(rx.try_recv(), Ok(42));
 
-        assert!(tx.update(|| 0).unwrap());
+        assert!(tx.try_send(|| 0).unwrap());
         assert_eq!(rx.try_recv(), Ok(2));
     }
 
@@ -243,7 +243,7 @@ mod test {
         let val = Arc::new(42);
 
         let (mut tx, mut rx) = channel(val.clone());
-        assert!(tx.update(|| val.clone()).unwrap());
+        assert!(tx.try_send(|| val.clone()).unwrap());
         assert_eq!(Arc::strong_count(&val), 3);
 
         // Dropping the sender drops the newly initialized (and unpublished) value.
@@ -272,11 +272,11 @@ mod test {
                 while now.elapsed().as_secs() < 1 {
                     *tx.get_mut() += 1;
                     total += 1;
-                    let _ = tx.update(|| 0);
+                    let _ = tx.try_send(|| 0);
                 }
                 // Ensure final buffer is published
                 loop {
-                    if tx.update(|| 0).unwrap() {
+                    if tx.try_send(|| 0).unwrap() {
                         break;
                     }
                     std::thread::yield_now();
@@ -317,7 +317,7 @@ mod test {
                 std::thread::spawn(move || {
                     while !stop.load(Ordering::Relaxed) {
                         *tx.get_mut() = val.clone();
-                        let _ = tx.update(|| val.clone());
+                        let _ = tx.try_send(|| val.clone());
                     }
                 })
             };
