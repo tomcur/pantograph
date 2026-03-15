@@ -59,12 +59,13 @@ unsafe impl<T: Send> Send for Sender<T> {}
 unsafe impl<T: Send> Send for Receiver<T> {}
 
 impl<T> Sender<T> {
-    /// If the [`Receiver`] has read the previous value, publish the current value and initialize a fresh one by calling `init`.
+    /// If the [`Receiver`] has read the previous value, publish the current value and stage a
+    /// fresh one by calling `init`.
     ///
-    /// Returns `true` iff a publish happened. The value set by `init` can be updated using
-    /// [`Self::get_mut`].
+    /// Returns `Ok(true)` if the previous value was published. The newly staged value can be
+    /// updated using [`Self::get_mut`].
     ///
-    /// The first call to `update` unconditionally publishes the initial value.
+    /// The first call to this method unconditionally publishes the initial value.
     pub fn update(&mut self, init: impl FnOnce() -> T) -> Result<bool, UpdateError> {
         // First do a `Relaxed` load to check, as this doesn't require synchronization on most
         // platforms.
@@ -84,14 +85,21 @@ impl<T> Sender<T> {
         Ok(true)
     }
 
-    /// Get the current value mutably. Update
+    /// Get the currently staged value mutably.
     pub fn get_mut(&mut self) -> &mut T {
         unsafe { (*self.shared.values.get_unchecked(self.write_idx).get()).assume_init_mut() }
     }
 }
 
 impl<T> Receiver<T> {
-    /// asd
+    /// Try to receive a value from the channel.
+    ///
+    /// If the channel contains a value, this returns `Ok` with that value and signals the
+    /// [`Sender`] that a new value can be published.
+    ///
+    /// Returns an error if the channel is empty. If the [`Sender`] is still alive, the error is
+    /// [`TryRecvError::Empty`]. If the [`Sender`] has been dropped, returns returns
+    /// [`TryRecvError::Disconnected`].
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
         // First do a `Relaxed` load to check, as this doesn't require synchronization on most
         // platforms.
