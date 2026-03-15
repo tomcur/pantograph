@@ -1,9 +1,10 @@
-//! A single-producer, single-consumer channel. The consumer reads the latest-produced value, i.e.,
-//! it "watches" the set value. The sender and receiver are wait-free.
+//! A single-producer, single-consumer channel. The consumer reads the latest-produced value.
+//! 
+//! The sender and receiver are wait-free.
 //!
-//! The [`Sender`] regains ownership over old values, both read and unread, allowing reuse. The
-//! [`Receiver`] gets mutable access to the value it's reading, allowing sending signals back to
-//! the sender.
+//! The [`Sender`] regains ownership over old values, both read and unread, allowing it to reuse
+//! old values. The [`Receiver`] gets mutable access to the value it's reading, allowing sending
+//! signals back to the sender (or, e.g., [`core::mem::take`]).
 //!
 //! This uses a triple buffer internally.
 
@@ -167,7 +168,7 @@ mod test {
     use super::channel;
 
     #[test]
-    fn test() {
+    fn basic() {
         let (mut tx, mut rx) = channel::<u128>(42);
 
         assert_eq!(*rx.get(), 42);

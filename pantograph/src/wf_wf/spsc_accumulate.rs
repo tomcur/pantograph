@@ -1,6 +1,8 @@
 //! A single-producer, single-consumer channel. The sender can keep updating the set value until
 //! the receiver has read the last value.
 //!
+//! The sender and receiver are wait-free.
+//!
 //! This uses a double buffer internally.
 
 #![expect(missing_debug_implementations, reason = "Deferred")]
