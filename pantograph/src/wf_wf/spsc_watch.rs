@@ -1,7 +1,13 @@
-//! A single-producer, single-consumer channel. The consumer always reads the latest-produced
-//! value, i.e., it "watches" the set value. The sender and receiver are wait-free.
+//! A single-producer, single-consumer channel. The consumer reads the latest-produced value, i.e.,
+//! it "watches" the set value. The sender and receiver are wait-free.
+//!
+//! The [`Sender`] regains ownership over old values, both read and unread, allowing reuse. The
+//! [`Receiver`] gets mutable access to the value it's reading, allowing sending signals back to
+//! the sender.
 //!
 //! This uses a triple buffer internally.
+
+#![expect(missing_debug_implementations, reason = "Deferred")]
 
 use core::{
     cell::UnsafeCell,
@@ -111,6 +117,8 @@ impl<T> Receiver<T> {
         unsafe { (*self.shared.buffer.get_unchecked(self.index as usize).get()).assume_init_mut() }
     }
 
+    /// Send a new value (i.e., set the next value the reader will read). This returns a previous
+    /// value if this is not the first time sending.
     pub fn update(&mut self) -> bool {
         if self.shared.stamp.load(Ordering::Relaxed) & VALUE_SENT_MASK == VALUE_SENT_MASK {
             self.index = self.shared.stamp.swap(self.index, Ordering::AcqRel) & BACKBUFFER_MASK;
