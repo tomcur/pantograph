@@ -52,7 +52,7 @@ pub struct Sender<T> {
 /// Construct the [`Sender`] and [`Receiver`] by calling [`channel`].
 pub struct Receiver<T> {
     shared: Arc<Shared<T>>,
-    read_idx: usize,
+    read_idx: u8,
 }
 
 unsafe impl<T: Send> Send for Sender<T> {}
@@ -137,9 +137,15 @@ impl<T> Receiver<T> {
         }
 
         self.shared.stamp.load(Ordering::Acquire);
-        self.read_idx = (self.read_idx + 1) % 2;
-        let val =
-            unsafe { (*self.shared.values.get_unchecked(self.read_idx).get()).assume_init_read() };
+        self.read_idx ^= 1;
+        let val = unsafe {
+            (*self
+                .shared
+                .values
+                .get_unchecked(usize::from(self.read_idx))
+                .get())
+            .assume_init_read()
+        };
         self.shared
             .stamp
             .store(stamp & !PUBLISHED, Ordering::Release);
