@@ -364,7 +364,8 @@ mod test {
     fn multithread_ordering() {
         let (mut tx, mut rx) = channel::<u64>(16);
 
-        let t = std::thread::spawn(move || {
+        let producer = std::thread::spawn(move || {
+            let mut total = 0_u64;
             let now = Instant::now();
             for value in 1..1_000_000_u64 {
                 if now.elapsed() > Duration::from_secs(1) {
@@ -372,15 +373,20 @@ mod test {
                 }
                 loop {
                     match tx.try_send(value) {
-                        Ok(()) => break,
+                        Ok(()) => {
+                            total += value;
+                            break;
+                        }
                         Err(TrySendError::Full(_)) => std::thread::yield_now(),
-                        Err(TrySendError::Disconnected(_)) => return,
+                        Err(TrySendError::Disconnected(_)) => return total,
                     }
                 }
             }
+            total
         });
 
         let mut prev = None;
+        let mut received_total = 0_u64;
         loop {
             match rx.try_recv() {
                 Ok(value) => {
@@ -393,13 +399,18 @@ mod test {
                         );
                     }
                     prev = Some(value);
+                    received_total += value;
                 }
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => break,
             }
         }
 
-        t.join().unwrap();
+        let expected = producer.join().unwrap();
+        assert_eq!(
+            received_total, expected,
+            "sum of sent and received values must be equal"
+        );
     }
 
     #[test]
