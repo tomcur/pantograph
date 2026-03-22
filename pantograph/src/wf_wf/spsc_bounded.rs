@@ -62,7 +62,10 @@ pub struct Sender<T> {
     shared: Arc<Shared<T>>,
     /// Local sequence number, always equal to the shared `sender_seq`.
     seq: u32,
-    /// Snapshot of `receiver_seq`. May be stale (always `<=` the true value).
+    /// Snapshot of `receiver_seq`.
+    ///
+    /// This may be stale, lagging behind the actual value; i.e., except for wrapping around the
+    /// `u32`, this is always `<=` the actual value.
     cached_receiver_seq: u32,
 }
 
@@ -71,7 +74,10 @@ pub struct Receiver<T> {
     shared: Arc<Shared<T>>,
     /// Local sequence number, always equal to the shared `receiver_seq`.
     seq: u32,
-    /// Snapshot of `sender_seq`. May be stale (always `<=` the true value).
+    /// Snapshot of `sender_seq`.
+    ///
+    /// This may be stale, lagging behind the actual value; i.e., except for wrapping around the
+    /// `u32`, this is always `<=` the actual value.
     cached_sender_seq: u32,
 }
 
