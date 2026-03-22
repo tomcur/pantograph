@@ -37,7 +37,7 @@ pub enum TryPublishError {
     Disconnected,
 }
 
-/// Errors returned by [`Sender::send`].
+/// Errors returned by [`Sender::try_send`].
 ///
 /// These are the same as [`TryPublishError`] but return the input value.
 #[derive(Debug, PartialEq, Eq)]
