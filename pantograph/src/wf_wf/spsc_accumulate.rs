@@ -7,6 +7,43 @@
 //! respective slots.
 //!
 //! This uses a triple buffer internally.
+//!
+//! # Example
+//!
+//! This channel can be used to fold changes into a single message, such as counting events or
+//! collecting statistics.
+//!
+//! In the following example, the sender accumulates a count and publishes it when the receiver is
+//! ready for the next batch. The receiver reads at its own pace, and no values are missed.
+//!
+//! ```
+//! use pantograph::wf_wf::spsc_accumulate;
+//!
+//! let (mut tx, mut rx) = spsc_accumulate::channel::<u64>();
+//!
+//! let producer = std::thread::spawn(move || {
+//!     for _ in 0..1000 {
+//!         *tx.get_mut() += 1;
+//!         if tx.publish().is_ok() {
+//!             *tx.get_mut() = 0;
+//!         }
+//!     }
+//!     // Flush remaining data.
+//!     while tx.publish().is_err() {}
+//! });
+//!
+//! let mut total = 0u64;
+//! loop {
+//!     match rx.try_recv() {
+//!         Ok(n) => total += *n,
+//!         Err(spsc_accumulate::TryRecvError::Empty) => std::thread::yield_now(),
+//!         Err(spsc_accumulate::TryRecvError::Disconnected) => break,
+//!     }
+//! }
+//! producer.join().unwrap();
+//!
+//! assert_eq!(total, 1000);
+//! ```
 
 #![expect(missing_debug_implementations, reason = "Deferred")]
 
