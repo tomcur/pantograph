@@ -17,9 +17,9 @@
 //! ready for the next batch. The receiver reads at its own pace, and no values are missed.
 //!
 //! ```
-//! use pantograph::wf_wf::spsc_accumulate;
+//! use pantograph::wf_wf::spsc_accumulate_lending;
 //!
-//! let (mut tx, mut rx) = spsc_accumulate::channel::<u64>();
+//! let (mut tx, mut rx) = spsc_accumulate_lending::channel::<u64>();
 //!
 //! let producer = std::thread::spawn(move || {
 //!     for _ in 0..1000 {
@@ -36,8 +36,8 @@
 //! loop {
 //!     match rx.try_recv() {
 //!         Ok(n) => total += *n,
-//!         Err(spsc_accumulate::TryRecvError::Empty) => std::thread::yield_now(),
-//!         Err(spsc_accumulate::TryRecvError::Disconnected) => break,
+//!         Err(spsc_accumulate_lending::TryRecvError::Empty) => std::thread::yield_now(),
+//!         Err(spsc_accumulate_lending::TryRecvError::Disconnected) => break,
 //!     }
 //! }
 //! producer.join().unwrap();

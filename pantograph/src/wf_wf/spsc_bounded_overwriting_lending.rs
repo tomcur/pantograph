@@ -8,7 +8,8 @@
 //! receiver is likely to keep up when it is actively reading.
 //!
 //! A receiver that consistently lags behind the sender or is only interested in the latest value
-//! may be better served by [`crate::wf_wf::spsc_latest`] or [`crate::wf_wf::spsc_accumulate`].
+//! may be better served by [`crate::wf_wf::spsc_watch`] or
+//! [`crate::wf_wf::spsc_accumulate_lending`].
 //!
 //! The channel retains ownership of values; the sender and receiver get `&mut T` access to their
 //! current slot.
