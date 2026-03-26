@@ -101,6 +101,8 @@ impl<T> Receiver<T> {
     /// Returns the value if one was available. Returns [`TryRecvError::Empty`] if the channel is
     /// empty, or [`TryRecvError::Disconnected`] if the channel is empty and the sender has been
     /// dropped.
+    ///
+    /// See also [`Self::update`].
     pub fn try_recv(&mut self) -> Result<&mut T, TryRecvError> {
         if self.update() {
             Ok(self.get_mut())
@@ -112,17 +114,25 @@ impl<T> Receiver<T> {
     }
 
     /// Get the current value.
+    ///
+    /// Use [`Self::try_recv`] or [`Self::update`] to receive a new value from the channel.
     pub fn get(&mut self) -> &T {
         &*self.get_mut()
     }
 
-    /// Get the current value mutably. If you want to take the value out of the channel, consider
-    /// using the channel with an `Option<T>` and calling `rx.get_mut().take()`.
+    /// Get the current value mutably.
+    ///
+    /// If you want to take the value out of the channel, consider using the channel with an
+    /// `Option<T>` and calling `rx.get_mut().take()`.
+    ///
+    /// Use [`Self::try_recv`] or [`Self::update`] to receive a new value from the channel.
     pub fn get_mut(&mut self) -> &mut T {
         unsafe { &mut *self.shared.buffer.get_unchecked(self.index as usize).get() }
     }
 
     /// Check for and swap in the next value the reader should observe.
+    ///
+    /// See also [`Self::try_recv`].
     pub fn update(&mut self) -> bool {
         let stamp = self.shared.stamp.load(Ordering::Relaxed);
         self.sender_disconnected |= stamp & SENDER_DISCONNECTED_MASK != 0;
@@ -139,7 +149,7 @@ impl<T> Receiver<T> {
 
     /// Returns `true` if the [`Sender`] is still alive.
     ///
-    /// This only updates after calling [`Self::update`].
+    /// This only updates after calling [`Self::try_recv`] or [`Self::update`].
     pub fn is_connected(&self) -> bool {
         !self.sender_disconnected
     }
