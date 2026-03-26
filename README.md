@@ -35,6 +35,38 @@ Wait-free and lock-free channels are useful for problems that must meet particul
 requirements or that must be robust against preemption. They are not necessarily faster than
 lock-based channels.
 
+# Channel flavors
+
+There are various channels to choose from. All channels currently implemented are
+single-producer, single-consumer. In all cases, both sides are wait-free.
+
+- `watch::lending::accumulate`
+  
+  The sender accumulates into a mutable value until the receiver takes out the previous value.
+  The channel lends out values mutably.
+
+- `watch::lending::swap`
+  
+  The receiver receives the latest value set the by the sender. The sender bounces between its
+  staging buffer and a back buffer. The channel lends out values mutably.
+
+- `bounded::lending::accumulate`
+  
+  The sender can publish values as long as there is room in the channel. The channel lends out
+  values mutably. Effectively a bounded variant of the accumulating watch channel.
+
+- `bounded::lending::overwrite`
+  
+  The sender can publish values as quickly as it wants, and overwrites unread values. The
+  receiver will read values from oldest surviving to newest. The channel lends out values
+  mutably.
+
+- `bounded::moving::queue`
+  
+  The sender can only publish when there is space in the channel. The receiver reads values
+  from oldest to newest. The channel transfers ownership of values.
+  
+
 <!-- cargo-rdme end -->
 
 ## Minimum supported Rust Version (MSRV)
