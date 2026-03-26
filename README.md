@@ -35,7 +35,7 @@ Wait-free and lock-free channels are useful for problems that must meet particul
 requirements or that must be robust against preemption. They are not necessarily faster than
 lock-based channels.
 
-# Channel flavors
+## Channel flavors
 
 There are various channels to choose from. All channels currently implemented are
 single-producer, single-consumer. In all cases, both sides are wait-free.
@@ -47,7 +47,7 @@ single-producer, single-consumer. In all cases, both sides are wait-free.
 
 - `watch::lending::swap`
   
-  The receiver receives the latest value set the by the sender. The sender bounces between its
+  The receiver receives the latest value set by the sender. The sender bounces between its
   staging buffer and a back buffer. The channel lends out values mutably.
 
 - `bounded::lending::accumulate`

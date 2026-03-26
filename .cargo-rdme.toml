@@ -1,5 +1,5 @@
 workspace-project = "pantograph"
-heading-base-level = 0
+heading-base-level = 1
 
 [intralinks]
 strip-links = true
