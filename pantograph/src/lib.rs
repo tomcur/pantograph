@@ -31,7 +31,7 @@
 //!
 //! - [`watch::lending::swap`](crate::watch::lending::swap)
 //!   
-//!   The receiver receives the latest value set the by the sender. The sender bounces between its
+//!   The receiver receives the latest value set by the sender. The sender bounces between its
 //!   staging buffer and a back buffer. The channel lends out values mutably.
 //!
 //! - [`bounded::lending::accumulate`](crate::bounded::lending::accumulate)
