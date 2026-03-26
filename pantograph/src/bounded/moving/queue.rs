@@ -14,6 +14,7 @@
 
 use core::{
     cell::UnsafeCell,
+    fmt,
     mem::MaybeUninit,
     sync::atomic::{AtomicBool, AtomicU32, Ordering},
 };
@@ -42,6 +43,28 @@ pub enum TryRecvError {
     /// The channel is empty and the [`Sender`] has disconnected.
     Disconnected,
 }
+
+impl<T> fmt::Display for TrySendError<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Full(_) => "sending on a full channel",
+            Self::Disconnected(_) => "sending on a disconnected channel",
+        })
+    }
+}
+
+impl<T: fmt::Debug> core::error::Error for TrySendError<T> {}
+
+impl fmt::Display for TryRecvError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Empty => "receiving on an empty channel",
+            Self::Disconnected => "receiving on a disconnected channel",
+        })
+    }
+}
+
+impl core::error::Error for TryRecvError {}
 
 struct Shared<T> {
     slots: Box<[CachePadded<UnsafeCell<MaybeUninit<T>>>]>,

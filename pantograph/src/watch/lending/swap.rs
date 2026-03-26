@@ -12,6 +12,7 @@
 
 use core::{
     cell::UnsafeCell,
+    fmt,
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
 
@@ -32,6 +33,17 @@ pub enum TryRecvError {
     /// The channel is empty and the [`Sender`] side of the channel has disconnected.
     Disconnected,
 }
+
+impl fmt::Display for TryRecvError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Empty => "receiving on an empty channel",
+            Self::Disconnected => "receiving on a disconnected channel",
+        })
+    }
+}
+
+impl core::error::Error for TryRecvError {}
 
 struct Shared<T> {
     buffer: [CachePadded<UnsafeCell<T>>; 3],
